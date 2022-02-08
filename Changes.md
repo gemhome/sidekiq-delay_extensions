@@ -6,3 +6,8 @@
 ---------
 
 - Extracted from https://github.com/mperham/sidekiq/tree/v6.4.1
+
+6.4.0
+---------
+
+- Extracted from https://github.com/mperham/sidekiq/tree/v6.4.0
