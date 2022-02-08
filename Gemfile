@@ -2,7 +2,7 @@ source "https://rubygems.org"
 
 gemspec
 
-gem "sidekiq", ">= 6.4.1"
+gem "sidekiq", ">= 6.4.0"
 gem "rake"
 gem "redis-namespace"
 gem "rails", ">= 6.0.2"

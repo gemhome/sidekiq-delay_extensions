@@ -23,13 +23,10 @@ module Sidekiq
         # Unwrap known wrappers so they show up in a human-friendly manner in the Web UI
         @display_args ||= case klass
                   when /\ASidekiq::DelayExtensions::Delayed/
-                    safe_load(args[0], args) do |_, _, arg, kwarg|
-                      if !kwarg || kwarg.empty?
-                        arg
-                      else
-                        [arg, kwarg]
-                      end
+                    safe_load(args[0], args) do |_, _, arg|
+                      arg
                     end
+
                   else
                     super
         end
