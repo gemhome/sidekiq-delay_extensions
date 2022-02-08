@@ -2,7 +2,7 @@ Sidekiq Delay Extensions
 ==============
 
 [![Gem Version](https://badge.fury.io/rb/sidekiq-delay_extensions.svg)](https://rubygems.org/gems/sidekiq-delay_extensions)
-![Build](https://github.com/gehome/sidekiq-delay_extensions/workflows/CI/badge.svg)
+![Build](https://github.com/gemhome/sidekiq-delay_extensions/workflows/CI/badge.svg)
 
 The [Sidekiq delay extensions are deprecated in 6.x and will be removed from 7.x](https://github.com/mperham/sidekiq/issues/5076).
 
