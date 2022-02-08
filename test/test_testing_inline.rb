@@ -21,6 +21,7 @@ describe 'Sidekiq::Testing.inline' do
   end
 
   before do
+    require 'sidekiq/delay_extensions/testing'
     require 'sidekiq/testing/inline'
     Sidekiq::Testing.inline!
   end
@@ -52,7 +53,7 @@ describe 'Sidekiq::Testing.inline' do
     end
 
     before do
-      Sidekiq::Extensions.enable_delay!
+      Sidekiq::DelayExtensions.enable_delay!
     end
 
     it 'stubs the delay call on mailers' do

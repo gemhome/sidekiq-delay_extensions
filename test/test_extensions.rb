@@ -3,9 +3,9 @@ require_relative 'helper'
 require 'sidekiq/api'
 require 'active_record'
 require 'action_mailer'
-Sidekiq::Extensions.enable_delay!
+Sidekiq::DelayExtensions.enable_delay!
 
-describe Sidekiq::Extensions do
+describe Sidekiq::DelayExtensions do
   before do
     Sidekiq.redis {|c| c.flushdb }
   end

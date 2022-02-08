@@ -5,9 +5,7 @@ ignore:
   - test/**/*
   - examples/**/*
   - myapp/**/*
-  - 'lib/sidekiq.rb':
-    - Lint/InheritException
-  - 'lib/sidekiq/extensions/**/*':
+  - 'lib/sidekiq/delay_extensions/**/*':
     - Style/MissingRespondToMissing
   - 'lib/**/*':
     - Lint/RescueException

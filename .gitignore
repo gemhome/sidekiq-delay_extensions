@@ -11,3 +11,4 @@ vendor/
 tmp/
 pkg/*.gem
 .byebug_history
+Gemfile.lock

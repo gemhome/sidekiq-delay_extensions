@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-gem 'sidekiq', :path => '..'
+gem 'sidekiq-delay_extensions', :path => '..'
 gem 'rails'
 gem 'puma'
 

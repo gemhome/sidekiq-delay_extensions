@@ -32,7 +32,7 @@ class TimedWorker
   end
 end
 
-Sidekiq::Extensions.enable_delay!
+Sidekiq::DelayExtensions.enable_delay!
 
 module Myapp
   class Current < ActiveSupport::CurrentAttributes

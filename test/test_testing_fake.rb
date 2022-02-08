@@ -26,7 +26,7 @@ describe 'Sidekiq::Testing.fake' do
   end
 
   before do
-    require 'sidekiq/testing'
+    require 'sidekiq/delay_extensions/testing'
     Sidekiq::Testing.fake!
     EnqueuedWorker.jobs.clear
     DirectWorker.jobs.clear
@@ -59,13 +59,13 @@ describe 'Sidekiq::Testing.fake' do
     end
 
     before do
-      Sidekiq::Extensions.enable_delay!
+      Sidekiq::DelayExtensions.enable_delay!
     end
 
     it 'stubs the delay call on mailers' do
-      assert_equal 0, Sidekiq::Extensions::DelayedMailer.jobs.size
+      assert_equal 0, Sidekiq::DelayExtensions::DelayedMailer.jobs.size
       FooMailer.delay.bar('hello!')
-      assert_equal 1, Sidekiq::Extensions::DelayedMailer.jobs.size
+      assert_equal 1, Sidekiq::DelayExtensions::DelayedMailer.jobs.size
     end
 
     class Something
@@ -74,9 +74,9 @@ describe 'Sidekiq::Testing.fake' do
     end
 
     it 'stubs the delay call on classes' do
-      assert_equal 0, Sidekiq::Extensions::DelayedClass.jobs.size
+      assert_equal 0, Sidekiq::DelayExtensions::DelayedClass.jobs.size
       Something.delay.foo(Date.today)
-      assert_equal 1, Sidekiq::Extensions::DelayedClass.jobs.size
+      assert_equal 1, Sidekiq::DelayExtensions::DelayedClass.jobs.size
     end
 
     class BarMailer < ActionMailer::Base
@@ -86,12 +86,12 @@ describe 'Sidekiq::Testing.fake' do
     end
 
     it 'returns enqueued jobs for specific classes' do
-      assert_equal 0, Sidekiq::Extensions::DelayedClass.jobs.size
+      assert_equal 0, Sidekiq::DelayExtensions::DelayedClass.jobs.size
       FooMailer.delay.bar('hello!')
       BarMailer.delay.foo('hello!')
-      assert_equal 2, Sidekiq::Extensions::DelayedMailer.jobs.size
-      assert_equal 1, Sidekiq::Extensions::DelayedMailer.jobs_for(FooMailer).size
-      assert_equal 1, Sidekiq::Extensions::DelayedMailer.jobs_for(BarMailer).size
+      assert_equal 2, Sidekiq::DelayExtensions::DelayedMailer.jobs.size
+      assert_equal 1, Sidekiq::DelayExtensions::DelayedMailer.jobs_for(FooMailer).size
+      assert_equal 1, Sidekiq::DelayExtensions::DelayedMailer.jobs_for(BarMailer).size
     end
   end
 
@@ -287,7 +287,7 @@ describe 'Sidekiq::Testing.fake' do
 
   describe 'queue testing' do
     before do
-      require 'sidekiq/testing'
+      require 'sidekiq/delay_extensions/testing'
       Sidekiq::Testing.fake!
     end
 
