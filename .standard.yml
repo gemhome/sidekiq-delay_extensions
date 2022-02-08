@@ -1,0 +1,13 @@
+ruby_version: 2.5.0
+fix: true
+parallel: true
+ignore:
+  - test/**/*
+  - examples/**/*
+  - myapp/**/*
+  - 'lib/sidekiq/delay_extensions/**/*':
+    - Style/MissingRespondToMissing
+  - 'lib/**/*':
+    - Lint/RescueException
+    - Security/YAMLLoad
+    - Style/GlobalVars
