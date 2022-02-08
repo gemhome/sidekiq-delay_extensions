@@ -1,3 +1,0 @@
----
-:require: ./test/fake_env.rb
-:concurrency: 25
