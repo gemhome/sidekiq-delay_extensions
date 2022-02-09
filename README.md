@@ -29,6 +29,12 @@ In your initializers, include the line:
 
     Sidekiq::DelayExtensions.enable_delay!
 
+Upgrading (IMPORTANT): Also add
+
+    Sidekiq::Extensions::DelayedClass = Sidekiq::DelayExtensions::DelayedClass
+    Sidekiq::Extensions::DelayedModel = Sidekiq::DelayExtensions::DelayedModel
+    Sidekiq::Extensions::DelayedMailer = Sidekiq::DelayExtensions::DelayedMailer
+
 Testing
 -----------------
 
