@@ -17,7 +17,7 @@ module Sidekiq
 
       def perform(yml)
         (target, method_name, args, kwargs) = ::YAML.safe_load(yml, permitted_classes: [Symbol])
-        target.__send__(method_name, *args, **kwargs)
+        target.__send__(method_name, *args, **kwargs.to_h)
       end
     end
 
