@@ -15,8 +15,15 @@ module Sidekiq
     class DelayedClass
       include Sidekiq::Worker
 
+      DEFAULT_PERMITTED_CLASSES = [Symbol, Date]
+
+      def self.permitted_classes=(arr); @permitted_classes = arr; end
+      def self.permitted_classes;       @permitted_classes || DEFAULT_PERMITTED_CLASSES; end
+
       def perform(yml)
-        (target, method_name, args, kwargs) = ::YAML.safe_load(yml, permitted_classes: [Symbol])
+        (target, method_name, args, kwargs) = ::YAML.safe_load(
+          yml, permitted_classes: self.class.permitted_classes
+        )
         target.__send__(method_name, *args, **kwargs.to_h)
       end
     end
