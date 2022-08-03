@@ -16,8 +16,15 @@ module Sidekiq
       include Sidekiq::Worker
 
       def perform(yml)
-        (target, method_name, args) = YAML.load(yml)
-        target.__send__(method_name, *args)
+        data = YAML.load(yml)
+
+        if data.length == 4
+          (target, method_name, args, kwargs) = data
+          target.__send__(method_name, *args, **kwargs)
+        else
+          (target, method_name, args) = data
+          target.__send__(method_name, *args)
+        end
       end
     end
 

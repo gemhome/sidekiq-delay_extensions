@@ -16,8 +16,16 @@ module Sidekiq
       include Sidekiq::Worker
 
       def perform(yml)
-        (target, method_name, args) = YAML.load(yml)
-        msg = target.public_send(method_name, *args)
+        data = YAML.load(yml)
+        msg =
+          if data.length == 4
+            (target, method_name, args, kwargs) = data
+            target.public_send(method_name, *args, **kwargs)
+          else
+            (target, method_name, args) = data
+            target.public_send(method_name, *args)
+          end
+
         # The email method can return nil, which causes ActionMailer to return
         # an undeliverable empty message.
         if msg
