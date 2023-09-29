@@ -1,9 +1,25 @@
 # frozen_string_literal: true
 
 require "sidekiq"
+require "sidekiq/delay_extensions/configuration"
 
 module Sidekiq
   module DelayExtensions
+    class << self
+      attr_accessor :configuration
+    end
+
+    # Call this method to modify default settings in your initializers.
+    #
+    # @example
+    #   Sidekiq::DelayExtensions.configure do |config|
+    #     config.setting_name = 'value'
+    #   end
+    def self.configure
+      self.configuration ||= Configuration.new
+      yield(configuration)
+    end
+
     def self.enable_delay!
       if defined?(::ActiveSupport)
         require "sidekiq/delay_extensions/active_record"

@@ -16,7 +16,9 @@ module Sidekiq
       include Sidekiq::Worker
 
       def perform(yml)
-        (target, method_name, args) = YAML.load(yml)
+        permitted_classes = Sidekiq::DelayExtensions.configuration.yaml_permitted_classes
+        aliases = Sidekiq::DelayExtensions.configuration.yaml_aliases
+        (target, method_name, args) = YAML.load(yml, permitted_classes: permitted_classes, aliases: aliases)
         target.__send__(method_name, *args)
       end
     end
