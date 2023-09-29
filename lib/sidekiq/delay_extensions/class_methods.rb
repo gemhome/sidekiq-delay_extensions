@@ -18,7 +18,11 @@ module Sidekiq
       def perform(yml)
         permitted_classes = Sidekiq::DelayExtensions.configuration.yaml_permitted_classes
         aliases = Sidekiq::DelayExtensions.configuration.yaml_aliases
-        (target, method_name, args) = YAML.load(yml, permitted_classes: permitted_classes, aliases: aliases)
+        if Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.1.0')
+          (target, method_name, args) = YAML.load(yml, permitted_classes: permitted_classes, aliases: aliases)
+        else
+          (target, method_name, args) = YAML.load(yml)
+        end
         target.__send__(method_name, *args)
       end
     end
