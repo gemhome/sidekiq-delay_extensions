@@ -21,6 +21,8 @@ module Sidekiq
         end
       end
 
+      require "sidekiq/delay_extensions/yaml"
+
       require "sidekiq/delay_extensions/class_methods"
       Module.__send__(:include, Sidekiq::DelayExtensions::Klass)
 

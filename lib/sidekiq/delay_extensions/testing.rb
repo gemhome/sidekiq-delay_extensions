@@ -14,7 +14,7 @@ module Sidekiq
       jobs.select do |job|
         marshalled = job["args"][0]
         next unless marshalled.index(klass.to_s)
-        YAML.load(marshalled)
+        ::Sidekiq::DelayExtensions::YAML.unsafe_load(marshalled)
       end
     end
   end
