@@ -16,19 +16,15 @@ Sidekiq.configure_server do |config|
   end
 end
 
-if ENV["SIDEKIQ_REDIS_CLIENT"]
-  Sidekiq::RedisConnection.adapter = :redis_client
-end
-
-class EmptyWorker
-  include Sidekiq::Worker
+class EmptyJob
+  include Sidekiq::Job
 
   def perform
   end
 end
 
-class TimedWorker
-  include Sidekiq::Worker
+class TimedJob
+  include Sidekiq::Job
 
   def perform(start)
     now = Time.now.to_f
@@ -49,8 +45,23 @@ Sidekiq::CurrentAttributes.persist("Myapp::Current") # Your AS::CurrentAttribute
 # that runs your deploy, e.g. your capistrano script.
 Sidekiq.configure_server do |config|
   label = `git log -1 --format="%h %s"`.strip
-  require "sidekiq/metrics/deploy"
-  Sidekiq::Metrics::Deploy.new.mark(label: label)
+  require "sidekiq/deploy"
+  Sidekiq::Deploy.mark!(label)
+end
+
+class Singler
+  include Sidekiq::ServerMiddleware
+  def call(w, j, q)
+    puts "single-threaded #{w.class.name}!"
+  end
+end
+
+Sidekiq.configure_server do |config|
+  config.capsule("single_threaded") do |cap|
+    cap.concurrency = 1
+    cap.queues = %w[single]
+    cap.server_middleware.add Singler
+  end
 end
 
 # helper jobs for seeding metrics data

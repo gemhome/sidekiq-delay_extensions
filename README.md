@@ -4,20 +4,20 @@ Sidekiq Delay Extensions
 [![Gem Version](https://badge.fury.io/rb/sidekiq-delay_extensions.svg)](https://rubygems.org/gems/sidekiq-delay_extensions)
 ![Build](https://github.com/gemhome/sidekiq-delay_extensions/workflows/CI/badge.svg)
 
-The [Sidekiq delay extensions are deprecated in 6.x and will be removed from 7.x](https://github.com/mperham/sidekiq/issues/5076).
+The [Sidekiq delay extensions were deprecated in 6.x and were removed from 7.x](https://github.com/mperham/sidekiq/issues/5076).
 
-This gem extracts the delay extensions from the latest 6.x release and will match
-Sidekiq 6.x version numbers.  
+This gem extracts the delay extensions from the latest 6.x release, 6.5.12.
+Version 7.x of this gem will maintain compatibility with Sidekiq 7.x.
 
-When Sidekiq reaches 7.0, this gem will begin being maintained on its own. Maintainers wanted.
+This gem is maintained independent of Sidekiq. Maintainers wanted.
 
 Requirements
 -----------------
 
-- See https://github.com/mperham/sidekiq/tree/v6.5.12
-  - Redis: 4.0+
-  - Ruby: MRI 2.5+ or JRuby 9.2+.
-  - Sidekiq 6.0 supports Rails 5.0+ but does not require it.
+- See https://github.com/sidekiq/sidekiq/blob/main/Changes.md#700
+  - Redis: 6.2+
+  - Ruby: MRI 2.7+ or JRuby 9.3+.
+  - Sidekiq 7.0 supports Rails 6.0+ but does not require it.
 
 Installation
 -----------------
@@ -31,6 +31,7 @@ In your initializers, include the line:
 
 Upgrading (IMPORTANT): Also add
 
+    # To handle any existing delayed jobs at time of upgrade.
     Sidekiq::Extensions::DelayedClass = Sidekiq::DelayExtensions::DelayedClass
     Sidekiq::Extensions::DelayedModel = Sidekiq::DelayExtensions::DelayedModel
     Sidekiq::Extensions::DelayedMailer = Sidekiq::DelayExtensions::DelayedMailer

@@ -2,12 +2,15 @@ source "https://rubygems.org"
 
 gemspec
 
-gem "sidekiq", "6.5.12"
+gem "sidekiq", "~> 7.0"
 gem "rake"
-gem "redis"
-gem "redis-namespace"
+RAILS_VERSION = "~> 7.0.4"
+gem "actionmailer", RAILS_VERSION
+gem "actionpack", RAILS_VERSION
+gem "activejob", RAILS_VERSION
+gem "activerecord", RAILS_VERSION
+gem "railties", RAILS_VERSION
 gem "redis-client"
-gem "rails", "~> 6.0"
 # gem "bumbler"
 # gem "debug"
 
@@ -15,9 +18,6 @@ gem "sqlite3", platforms: :ruby
 gem "activerecord-jdbcsqlite3-adapter", platforms: :jruby
 gem "after_commit_everywhere", require: false
 gem "yard"
-
-# mail dependencies
-gem "net-smtp", platforms: :mri, require: false
 
 group :test do
   gem "maxitest"

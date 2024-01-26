@@ -6,10 +6,10 @@ Gem::Specification.new do |spec|
   spec.name = "sidekiq-delay_extensions"
   spec.version = Sidekiq::DelayExtensions::VERSION
   spec.authors = ["Mike Perham", "Benjamin Fleischer"]
-  spec.email = ["mperham@gmail.com", "github@benjaminfleischer.com"]
+  spec.email = ["info@contribsys.com", "github@benjaminfleischer.com"]
 
   spec.summary = "Sidekiq Delay Extensions"
-  spec.description = "Extracted from Sidekiq 6.0"
+  spec.description = "Extracted from Sidekiq 6.0, compatible with Sidekiq 7.0"
   spec.homepage = "https://github.com/gemhome/sidekiq-delay_extensions/wiki/Delayed-extensions"
   spec.license = "LGPL-3.0"
 
@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
   spec.bindir = "exe"
   spec.executables = []
   spec.require_paths = ["lib"]
-  spec.required_ruby_version = ">= 2.5.0"
+  spec.required_ruby_version = ">= 2.7.0"
 
   spec.metadata = {
     "homepage_uri" => "https://github.com/gemhome/sidekiq-delay_extensions/wiki/Delayed-extensions",
@@ -28,5 +28,5 @@ Gem::Specification.new do |spec|
     "source_code_uri" => "https://github.com/gemhome/sidekiq-delay_extensions"
   }
 
-  spec.add_dependency "sidekiq", ">= 6.5.12"
+  spec.add_dependency "sidekiq", ">= 7.0"
 end
