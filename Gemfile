@@ -2,12 +2,15 @@ source "https://rubygems.org"
 
 gemspec
 
-gem "sidekiq", "6.4.1"
+gem "sidekiq", "6.5.12"
 gem "rake"
+gem "redis"
 gem "redis-namespace"
-gem "rails", ">= 6.0.2"
+gem "redis-client"
+gem "rails", "~> 6.0"
 gem "sqlite3", platforms: :ruby
 gem "activerecord-jdbcsqlite3-adapter", platforms: :jruby
+gem "after_commit_everywhere"
 
 # mail dependencies
 gem "net-smtp", platforms: :mri, require: false
@@ -20,6 +23,7 @@ end
 
 group :development, :test do
   gem "standard", require: false
+  gem "pry"
 end
 
 group :load_test do

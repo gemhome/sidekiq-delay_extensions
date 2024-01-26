@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require 'bundler/setup'
+require "bundler/setup"
 Bundler.require(:default, :test)
 
-require 'minitest/pride'
-require 'minitest/autorun'
+require "minitest/pride"
+require "minitest/autorun"
 
 $TESTING = true
 # disable minitest/parallel threads
@@ -14,24 +14,28 @@ ENV["N"] = "0"
 ENV["BACKTRACE"] = "1"
 
 if ENV["COVERAGE"]
-  require 'simplecov'
+  require "simplecov"
   SimpleCov.start do
     enable_coverage :branch
     add_filter "/test/"
     add_filter "/myapp/"
   end
-  if ENV['CI']
-    require 'codecov'
+  if ENV["CI"]
+    require "codecov"
     SimpleCov.formatter = SimpleCov::Formatter::Codecov
   end
 end
 
-ENV['REDIS_URL'] ||= 'redis://localhost/15'
+ENV["REDIS_URL"] ||= "redis://localhost/15"
 
-Sidekiq.logger = ::Logger.new(STDOUT)
+Sidekiq.logger = ::Logger.new($stdout)
 Sidekiq.logger.level = Logger::ERROR
 
-def capture_logging(lvl=Logger::INFO)
+if ENV["SIDEKIQ_REDIS_CLIENT"]
+  Sidekiq::RedisConnection.adapter = :redis_client
+end
+
+def capture_logging(lvl = Logger::INFO)
   old = Sidekiq.logger
   begin
     out = StringIO.new
@@ -42,5 +46,22 @@ def capture_logging(lvl=Logger::INFO)
     out.string
   ensure
     Sidekiq.logger = old
+  end
+end
+
+module Sidekiq
+  def self.reset!
+    @config = DEFAULTS.dup
+  end
+end
+
+Signal.trap("TTIN") do
+  Thread.list.each do |thread|
+    puts "Thread TID-#{(thread.object_id ^ ::Process.pid).to_s(36)} #{thread.name}"
+    if thread.backtrace
+      puts thread.backtrace.join("\n")
+    else
+      puts "<no backtrace available>"
+    end
   end
 end
