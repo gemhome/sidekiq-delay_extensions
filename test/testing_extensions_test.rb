@@ -6,15 +6,31 @@ require "active_record"
 require "action_mailer"
 Sidekiq::DelayExtensions.enable_delay!
 
+class MyModel < ActiveRecord::Base
+  def self.long_class_method
+    raise "Should not be called!"
+  end
+end
+
+class UserMailer < ActionMailer::Base
+  def greetings(a, b)
+    raise "Should not be called!"
+  end
+end
+
+class SomeClass
+  def self.doit(arg)
+  end
+end
+
+module SomeModule
+  def self.doit(arg)
+  end
+end
+
 describe Sidekiq::DelayExtensions do
   before do
     Sidekiq.redis { |c| c.flushdb }
-  end
-
-  class MyModel < ActiveRecord::Base
-    def self.long_class_method
-      raise "Should not be called!"
-    end
   end
 
   it "allows delayed execution of ActiveRecord class methods" do
@@ -50,12 +66,6 @@ describe Sidekiq::DelayExtensions do
     assert_equal 1, ss.size
   end
 
-  class UserMailer < ActionMailer::Base
-    def greetings(a, b)
-      raise "Should not be called!"
-    end
-  end
-
   it "allows delayed delivery of ActionMailer mails" do
     assert_equal [], Sidekiq::Queue.all.map(&:name)
     q = Sidekiq::Queue.new
@@ -79,21 +89,11 @@ describe Sidekiq::DelayExtensions do
     assert_equal 1, ss.size
   end
 
-  class SomeClass
-    def self.doit(arg)
-    end
-  end
-
   it "allows delay of any ole class method" do
     q = Sidekiq::Queue.new
     assert_equal 0, q.size
     SomeClass.delay.doit(Date.today)
     assert_equal 1, q.size
-  end
-
-  module SomeModule
-    def self.doit(arg)
-    end
   end
 
   it "logs large payloads" do

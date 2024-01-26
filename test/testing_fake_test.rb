@@ -2,30 +2,99 @@
 
 require_relative "helper"
 
+class PerformError < RuntimeError; end
+
+class DirectWorker
+  include Sidekiq::Worker
+  def perform(a, b)
+    a + b
+  end
+end
+
+class EnqueuedWorker
+  include Sidekiq::Worker
+  def perform(a, b)
+    a + b
+  end
+end
+
+class StoredWorker
+  include Sidekiq::Worker
+  def perform(error)
+    raise PerformError if error
+  end
+end
+
+require "action_mailer"
+class FooMailer < ActionMailer::Base
+  def bar(str)
+    str
+  end
+end
+
+class Something
+  def self.foo(x)
+  end
+end
+
+class BarMailer < ActionMailer::Base
+  def foo(str)
+    str
+  end
+end
+
+class SpecificJidWorker
+  include Sidekiq::Worker
+  sidekiq_class_attribute :count
+  self.count = 0
+  def perform(worker_jid)
+    return unless worker_jid == jid
+    self.class.count += 1
+  end
+end
+
+class FirstWorker
+  include Sidekiq::Worker
+  sidekiq_class_attribute :count
+  self.count = 0
+  def perform
+    self.class.count += 1
+  end
+end
+
+class SecondWorker
+  include Sidekiq::Worker
+  sidekiq_class_attribute :count
+  self.count = 0
+  def perform
+    self.class.count += 1
+  end
+end
+
+class ThirdWorker
+  include Sidekiq::Worker
+  sidekiq_class_attribute :count
+  def perform
+    FirstWorker.perform_async
+    SecondWorker.perform_async
+  end
+end
+
+class QueueWorker
+  include Sidekiq::Worker
+  def perform(a, b)
+    a + b
+  end
+end
+
+class AltQueueWorker
+  include Sidekiq::Worker
+  sidekiq_options queue: :alt
+  def perform(a, b)
+    a + b
+  end
+end
 describe "Sidekiq::Testing.fake" do
-  class PerformError < RuntimeError; end
-
-  class DirectWorker
-    include Sidekiq::Worker
-    def perform(a, b)
-      a + b
-    end
-  end
-
-  class EnqueuedWorker
-    include Sidekiq::Worker
-    def perform(a, b)
-      a + b
-    end
-  end
-
-  class StoredWorker
-    include Sidekiq::Worker
-    def perform(error)
-      raise PerformError if error
-    end
-  end
-
   before do
     require "sidekiq/delay_extensions/testing"
     Sidekiq::Testing.fake!
@@ -52,13 +121,6 @@ describe "Sidekiq::Testing.fake" do
   end
 
   describe "delayed" do
-    require "action_mailer"
-    class FooMailer < ActionMailer::Base
-      def bar(str)
-        str
-      end
-    end
-
     before do
       Sidekiq::DelayExtensions.enable_delay!
     end
@@ -69,21 +131,10 @@ describe "Sidekiq::Testing.fake" do
       assert_equal 1, Sidekiq::DelayExtensions::DelayedMailer.jobs.size
     end
 
-    class Something
-      def self.foo(x)
-      end
-    end
-
     it "stubs the delay call on classes" do
       assert_equal 0, Sidekiq::DelayExtensions::DelayedClass.jobs.size
       Something.delay.foo(Date.today)
       assert_equal 1, Sidekiq::DelayExtensions::DelayedClass.jobs.size
-    end
-
-    class BarMailer < ActionMailer::Base
-      def foo(str)
-        str
-      end
     end
 
     it "returns enqueued jobs for specific classes" do
@@ -117,16 +168,6 @@ describe "Sidekiq::Testing.fake" do
       StoredWorker.drain
     end
     assert_equal 0, StoredWorker.jobs.size
-  end
-
-  class SpecificJidWorker
-    include Sidekiq::Worker
-    sidekiq_class_attribute :count
-    self.count = 0
-    def perform(worker_jid)
-      return unless worker_jid == jid
-      self.class.count += 1
-    end
   end
 
   it "execute only jobs with assigned JID" do
@@ -171,33 +212,6 @@ describe "Sidekiq::Testing.fake" do
     DirectWorker.clear
     assert_raises Sidekiq::EmptyQueueError do
       DirectWorker.perform_one
-    end
-  end
-
-  class FirstWorker
-    include Sidekiq::Worker
-    sidekiq_class_attribute :count
-    self.count = 0
-    def perform
-      self.class.count += 1
-    end
-  end
-
-  class SecondWorker
-    include Sidekiq::Worker
-    sidekiq_class_attribute :count
-    self.count = 0
-    def perform
-      self.class.count += 1
-    end
-  end
-
-  class ThirdWorker
-    include Sidekiq::Worker
-    sidekiq_class_attribute :count
-    def perform
-      FirstWorker.perform_async
-      SecondWorker.perform_async
     end
   end
 
@@ -295,21 +309,6 @@ describe "Sidekiq::Testing.fake" do
     after do
       Sidekiq::Testing.disable!
       Sidekiq::Queues.clear_all
-    end
-
-    class QueueWorker
-      include Sidekiq::Worker
-      def perform(a, b)
-        a + b
-      end
-    end
-
-    class AltQueueWorker
-      include Sidekiq::Worker
-      sidekiq_options queue: :alt
-      def perform(a, b)
-        a + b
-      end
     end
 
     it "finds enqueued jobs" do
