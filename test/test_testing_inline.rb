@@ -2,26 +2,39 @@
 
 require_relative "helper"
 
+class InlineError < RuntimeError; end
+
+class ParameterIsNotString < RuntimeError; end
+
+class InlineWorker
+  include Sidekiq::Worker
+  def perform(pass)
+    raise ArgumentError, "no jid" unless jid
+    raise InlineError unless pass
+  end
+end
+
+class InlineWorkerWithTimeParam
+  include Sidekiq::Worker
+  def perform(time)
+    raise ParameterIsNotString unless time.is_a?(String) || time.is_a?(Numeric)
+  end
+end
+
+require "action_mailer"
+class InlineFooMailer < ActionMailer::Base
+  def bar(str)
+    raise InlineError
+  end
+end
+
+class InlineFooModel
+  def self.bar(str)
+    raise InlineError
+  end
+end
+
 describe "Sidekiq::Testing.inline" do
-  class InlineError < RuntimeError; end
-
-  class ParameterIsNotString < RuntimeError; end
-
-  class InlineWorker
-    include Sidekiq::Worker
-    def perform(pass)
-      raise ArgumentError, "no jid" unless jid
-      raise InlineError unless pass
-    end
-  end
-
-  class InlineWorkerWithTimeParam
-    include Sidekiq::Worker
-    def perform(time)
-      raise ParameterIsNotString unless time.is_a?(String) || time.is_a?(Numeric)
-    end
-  end
-
   before do
     require "sidekiq/delay_extensions/testing"
     require "sidekiq/testing/inline"
@@ -41,19 +54,6 @@ describe "Sidekiq::Testing.inline" do
   end
 
   describe "delay" do
-    require "action_mailer"
-    class InlineFooMailer < ActionMailer::Base
-      def bar(str)
-        raise InlineError
-      end
-    end
-
-    class InlineFooModel
-      def self.bar(str)
-        raise InlineError
-      end
-    end
-
     before do
       Sidekiq::DelayExtensions.enable_delay!
     end
