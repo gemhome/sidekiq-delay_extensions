@@ -1,11 +1,15 @@
-source 'https://rubygems.org'
+source "https://rubygems.org"
 
-gem 'sidekiq-delay_extensions', :path => '..'
-gem 'rails'
-gem 'puma'
+gem "sidekiq-delay_extensions", path: ".."
+gem "rails"
+gem "puma"
+
+gem "redis-client"
 
 # Ubuntu required packages to install rails
 # apt-get install build-essential patch ruby-dev zlib1g-dev liblzma-dev libsqlite3-dev
 platforms :ruby do
-  gem 'sqlite3'
+  gem "sqlite3"
 end
+
+gem "after_commit_everywhere"

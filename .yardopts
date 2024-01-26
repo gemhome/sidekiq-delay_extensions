@@ -1,0 +1,3 @@
+--title "Sidekiq Delay Extension"
+--hide-api private
+lib/sidekiq/delay_extensions/api.rb - Changes.md
