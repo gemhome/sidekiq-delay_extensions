@@ -41,12 +41,13 @@ module Sidekiq
       # vs.
       # https://github.com/mperham/sidekiq/blob/v7.0.1/lib/sidekiq/api.rb#L374-L411
       def safe_load(content, default)
-        yield(*YAML.load(content))
+        yield(*Sidekiq::DelayExtensions::YAML.unsafe_load(content))
       rescue => ex
         # #1761 in dev mode, it's possible to have jobs enqueued which haven't been loaded into
         # memory yet so the YAML can't be loaded.
         # TODO is this still necessary? Zeitwerk reloader should handle?
-        Sidekiq.logger.warn "Unable to load YAML: #{ex.message}" unless Sidekiq.options[:environment] == "development"
+        sidekiq_env = ::Sidekiq.default_configuration[:environment] || ENV["APP_ENV"] || ENV["RAILS_ENV"] || ENV["RACK_ENV"]
+        ::Sidekiq.logger.warn "Unable to load YAML: #{ex.message}" unless sidekiq_env == "development"
         default
       end
     end

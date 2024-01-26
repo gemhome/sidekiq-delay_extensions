@@ -16,7 +16,7 @@ module Sidekiq
       include Sidekiq::Job
 
       def perform(yml)
-        (target, method_name, args) = YAML.load(yml)
+        (target, method_name, args) = ::Sidekiq::DelayExtensions::YAML.unsafe_load(yml)
         target.__send__(method_name, *args)
       end
     end
