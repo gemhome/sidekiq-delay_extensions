@@ -32,6 +32,8 @@ In your initializers, include the line:
 Upgrading (IMPORTANT): Also add
 
     # To handle any existing delayed jobs at time of upgrade.
+    module Sidekiq::Extensions
+    end
     Sidekiq::Extensions::DelayedClass = Sidekiq::DelayExtensions::DelayedClass
     Sidekiq::Extensions::DelayedModel = Sidekiq::DelayExtensions::DelayedModel
     Sidekiq::Extensions::DelayedMailer = Sidekiq::DelayExtensions::DelayedMailer
