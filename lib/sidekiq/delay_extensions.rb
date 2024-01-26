@@ -5,6 +5,10 @@ require "sidekiq"
 module Sidekiq
   module DelayExtensions
     def self.enable_delay!
+      require "sidekiq/delay_extensions/yaml"
+
+      require "sidekiq/delay_extensions/generic_job"
+
       if defined?(::ActiveSupport)
         require "sidekiq/delay_extensions/active_record"
         require "sidekiq/delay_extensions/action_mailer"
@@ -20,8 +24,6 @@ module Sidekiq
           extend Sidekiq::DelayExtensions::ActionMailer
         end
       end
-
-      require "sidekiq/delay_extensions/yaml"
 
       require "sidekiq/delay_extensions/class_methods"
       Module.__send__(:include, Sidekiq::DelayExtensions::Klass)

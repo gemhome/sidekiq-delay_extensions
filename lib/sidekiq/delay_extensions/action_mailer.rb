@@ -13,7 +13,6 @@ module Sidekiq
     #    UserMailer.delay_for(5.days).send_welcome_email(new_user)
     #    UserMailer.delay_until(5.days.from_now).send_welcome_email(new_user)
     class DelayedMailer < GenericJob
-
       def _perform(target, method_name, *args, **kwargs)
         msg =
           if kwargs.empty?
@@ -32,16 +31,24 @@ module Sidekiq
     end
 
     module ActionMailer
+      def sidekiq_delay_proxy
+        if Sidekiq::DelayExtensions.use_generic_proxy
+          GenericProxy
+        else
+          Proxy
+        end
+      end
+
       def sidekiq_delay(options = {})
-        Proxy.new(DelayedMailer, self, options)
+        sidekiq_delay_proxy.new(DelayedMailer, self, options)
       end
 
       def sidekiq_delay_for(interval, options = {})
-        Proxy.new(DelayedMailer, self, options.merge("at" => Time.now.to_f + interval.to_f))
+        sidekiq_delay_proxy.new(DelayedMailer, self, options.merge("at" => Time.now.to_f + interval.to_f))
       end
 
       def sidekiq_delay_until(timestamp, options = {})
-        Proxy.new(DelayedMailer, self, options.merge("at" => timestamp.to_f))
+        sidekiq_delay_proxy.new(DelayedMailer, self, options.merge("at" => timestamp.to_f))
       end
       alias_method :delay, :sidekiq_delay
       alias_method :delay_for, :sidekiq_delay_for
