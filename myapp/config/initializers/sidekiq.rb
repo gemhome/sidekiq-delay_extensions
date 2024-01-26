@@ -45,7 +45,7 @@ Sidekiq::CurrentAttributes.persist("Myapp::Current") # Your AS::CurrentAttribute
 
 # create a label based on the shorthash and subject line of the latest commit in git.
 # WARNING: you only want to run this ONCE! If this runs on boot for 20 different Sidekiq processes,
-# you will get 20 different deploy marks in Redis! Instead this should go into the script
+# you can get multiple deploy marks in Redis! Instead this should go into the script
 # that runs your deploy, e.g. your capistrano script.
 Sidekiq.configure_server do |config|
   label = `git log -1 --format="%h %s"`.strip

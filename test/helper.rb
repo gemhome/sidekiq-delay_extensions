@@ -4,7 +4,8 @@ require "bundler/setup"
 Bundler.require(:default, :test)
 
 require "minitest/pride"
-require "minitest/autorun"
+require "maxitest/autorun"
+require "maxitest/threads"
 
 $TESTING = true
 # disable minitest/parallel threads
@@ -19,14 +20,12 @@ if ENV["COVERAGE"]
     enable_coverage :branch
     add_filter "/test/"
     add_filter "/myapp/"
-  end
-  if ENV["CI"]
-    require "codecov"
-    SimpleCov.formatter = SimpleCov::Formatter::Codecov
+    minimum_coverage 90
   end
 end
 
 ENV["REDIS_URL"] ||= "redis://localhost/15"
+NULL_LOGGER = Logger.new(IO::NULL)
 
 Sidekiq.logger = ::Logger.new($stdout)
 Sidekiq.logger.level = Logger::ERROR
