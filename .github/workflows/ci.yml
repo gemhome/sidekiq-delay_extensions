@@ -13,7 +13,7 @@ jobs:
   test:
 
     runs-on: ubuntu-latest
-    
+
     # on-hover of the checkmark, show "Ruby 3 / Redis 6" instead of "(3 / 6)"
     name: "Ruby ${{ matrix.ruby }} / Redis ${{ matrix.redis }}"
 
@@ -35,6 +35,6 @@ jobs:
     - name: Set up Redis ${{ matrix.redis }}
       uses: supercharge/redis-github-action@1.8.0
       with:
-        redis-version: ${{ matrix.redis }}        
+        redis-version: ${{ matrix.redis }}
     - name: Run tests
       run: bundle exec rake

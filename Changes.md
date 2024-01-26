@@ -1,6 +1,11 @@
 # Sidekiq Delay Extensions Changes
 
-[Sidekiq Changes](https://github.com/gemhome/sidekiq-delay_extensions/blob/main/Changes.md)
+[See Sidekiq for its changes](https://github.com/mperham/sidekiq/blob/main/Changes.md)
+
+7.0.0
+---------
+
+- Require Sidekiq >= 7.0
 
 6.5.12
 ---------

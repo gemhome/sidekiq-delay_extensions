@@ -2,6 +2,6 @@
 
 module Sidekiq
   module DelayExtensions
-    VERSION = "6.5.12"
+    VERSION = "7.0.0"
   end
 end

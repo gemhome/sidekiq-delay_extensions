@@ -30,7 +30,7 @@ end
 
 describe Sidekiq::DelayExtensions do
   before do
-    Sidekiq.redis { |c| c.flushdb }
+    @cfg = reset!
   end
 
   it "allows delayed execution of ActiveRecord class methods" do
@@ -97,7 +97,7 @@ describe Sidekiq::DelayExtensions do
   end
 
   it "logs large payloads" do
-    output = capture_logging(Logger::WARN) do
+    output = capture_logging(@cfg, Logger::WARN) do
       SomeClass.delay.doit("a" * 8192)
     end
     assert_match(/#{SomeClass}.doit job argument is/o, output)
