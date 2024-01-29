@@ -7,7 +7,7 @@ module Sidekiq
     SIZE_LIMIT = 8_192
 
     singleton_class.attr_accessor :use_generic_proxy
-    self.use_generic_proxy = true
+    self.use_generic_proxy = false
 
     class Proxy < BasicObject
       def initialize(performable, target, options = {})
