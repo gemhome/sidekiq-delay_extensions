@@ -12,12 +12,15 @@ module Sidekiq
     #    UserMailer.delay.send_welcome_email(new_user)
     #    UserMailer.delay_for(5.days).send_welcome_email(new_user)
     #    UserMailer.delay_until(5.days.from_now).send_welcome_email(new_user)
-    class DelayedMailer
-      include Sidekiq::Job
+    class DelayedMailer < GenericJob
 
-      def perform(yml)
-        (target, method_name, args) = ::Sidekiq::DelayExtensions::YAML.unsafe_load(yml)
-        msg = target.public_send(method_name, *args)
+      def _perform(target, method_name, *args, **kwargs)
+        msg =
+          if kwargs.empty?
+            target.public_send(method_name, *args)
+          else
+            target.public_send(method_name, *args, **kwargs)
+          end
         # The email method can return nil, which causes ActionMailer to return
         # an undeliverable empty message.
         if msg

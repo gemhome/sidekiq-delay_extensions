@@ -14,13 +14,7 @@ module Sidekiq
     # Please note, this is not recommended as this will serialize the entire
     # object to Redis.  Your Sidekiq jobs should pass IDs, not entire instances.
     # This is here for backwards compatibility with Delayed::Job only.
-    class DelayedModel
-      include Sidekiq::Job
-
-      def perform(yml)
-        (target, method_name, args) = ::Sidekiq::DelayExtensions::YAML.unsafe_load(yml)
-        target.__send__(method_name, *args)
-      end
+    class DelayedModel < GenericJob
     end
 
     module ActiveRecord

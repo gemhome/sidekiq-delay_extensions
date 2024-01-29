@@ -12,13 +12,7 @@ module Sidekiq
     #   User.delay.delete_inactive
     #   Wikipedia.delay.download_changes_for(Date.today)
     #
-    class DelayedClass
-      include Sidekiq::Job
-
-      def perform(yml)
-        (target, method_name, args) = ::Sidekiq::DelayExtensions::YAML.unsafe_load(yml)
-        target.__send__(method_name, *args)
-      end
+    class DelayedClass < GenericJob
     end
 
     module Klass
