@@ -49,7 +49,7 @@ module Sidekiq
               #   kwargs = args.pop.symbolize_keys
               [*args]
             else
-              [*args, JSON.parse(JSON.dump(kwargs))]
+              [*args, ::JSON.parse(::JSON.dump(kwargs))]
             end
           obj = [@target.name, name&.to_s, valid_json_args]
           marshalled = ::JSON.dump(obj)
@@ -59,9 +59,12 @@ module Sidekiq
           else
             [@target.name, name&.to_s, *args]
           end
-          warn "Non-JSON args passed to Sidekiq delayed job. obj=#{obj.inspect}"
+          ::Sidekiq.logger.warn {
+            "Non-JSON args passed to Sidekiq delayed job. obj=#{obj.inspect}"
+          }
           marshalled = ::YAML.dump(obj)
         end
+        # Debug notes:
         # marshalled = ::YAML.dump(valid_json_args)
         # marshalled = ::YAML.to_json(valid_json_args)
         # value = {
