@@ -12,26 +12,28 @@ module Sidekiq
     #   User.delay.delete_inactive
     #   Wikipedia.delay.download_changes_for(Date.today)
     #
-    class DelayedClass
-      include Sidekiq::Job
-
-      def perform(yml)
-        (target, method_name, args) = ::Sidekiq::DelayExtensions::YAML.unsafe_load(yml)
-        target.__send__(method_name, *args)
-      end
+    class DelayedClass < GenericJob
     end
 
     module Klass
+      def sidekiq_delay_proxy
+        if Sidekiq::DelayExtensions.use_generic_proxy
+          GenericProxy
+        else
+          Proxy
+        end
+      end
+
       def sidekiq_delay(options = {})
-        Proxy.new(DelayedClass, self, options)
+        sidekiq_delay_proxy.new(DelayedClass, self, options)
       end
 
       def sidekiq_delay_for(interval, options = {})
-        Proxy.new(DelayedClass, self, options.merge("at" => Time.now.to_f + interval.to_f))
+        sidekiq_delay_proxy.new(DelayedClass, self, options.merge("at" => Time.now.to_f + interval.to_f))
       end
 
       def sidekiq_delay_until(timestamp, options = {})
-        Proxy.new(DelayedClass, self, options.merge("at" => timestamp.to_f))
+        sidekiq_delay_proxy.new(DelayedClass, self, options.merge("at" => timestamp.to_f))
       end
       alias_method :delay, :sidekiq_delay
       alias_method :delay_for, :sidekiq_delay_for
