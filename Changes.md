@@ -14,6 +14,7 @@ Unreleased
   - When false, there is no delayed proxy changes; the original `Sidekiq::DelayExtensions::Proxy` is used.
   - When true, the new `Sidekiq::DelayExtensions::GenericProxy` is used, which handles both `*args` and `**kwargs` more naturally.
     Be sure to test this works for you as expected when turning this on.
+- Chore: Load YAML consistently via `::Sidekiq::DelayExtensions::YAML`
 
 7.0.0
 ---------
