@@ -5,6 +5,9 @@
 Unreleased
 ---------
 
+7.1.0
+---------
+
 - New `Sidekiq::DelayExtensions::GenericJob` superclass for DelayedMailer, DelayedModel, DelayedClass
   - it has a `_perform` method which accepts the unmarshalled and processed
     `(target, method_name, *args, **kwargs)` and can be overridden or extended as needed.
