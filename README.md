@@ -31,19 +31,23 @@ In your initializers, include the line:
 
 Upgrading (IMPORTANT): Also add
 
-    # To handle any existing delayed jobs at time of upgrade.
-    module Sidekiq::Extensions
-    end
-    Sidekiq::Extensions::DelayedClass = Sidekiq::DelayExtensions::DelayedClass
-    Sidekiq::Extensions::DelayedModel = Sidekiq::DelayExtensions::DelayedModel
-    Sidekiq::Extensions::DelayedMailer = Sidekiq::DelayExtensions::DelayedMailer
+```ruby
+# To handle any existing delayed jobs at time of upgrade.
+module Sidekiq::Extensions
+end
+Sidekiq::Extensions::DelayedClass = Sidekiq::DelayExtensions::DelayedClass
+Sidekiq::Extensions::DelayedModel = Sidekiq::DelayExtensions::DelayedModel
+Sidekiq::Extensions::DelayedMailer = Sidekiq::DelayExtensions::DelayedMailer
+```
 
 Testing
 -----------------
 
 In your test environment, include the line:
 
-    require "sidekiq/delay_extensions/testing"
+```ruby
+require "sidekiq/delay_extensions/testing"
+```
 
 Contributing
 -----------------
