@@ -19,27 +19,34 @@
 #
 # Coverage in this file
 # ---------------------
-#  1.  Proxy payload shape  — 4-tuple emitted for delay / delay_for / delay_until
-#  2.  Payload slots         — target, method, args, kwargs each in the right slot
-#  3.  Edge cases            — kwargs-only, positional-only, positional Hash ≠ kwargs
-#  4.  Module target         — Proxy works on plain modules, not just classes
-#  5.  YAML symbol round-trip — kwargs keys survive serialisation as symbols
-#  6.  GenericJob dispatch   — perform re-splats kwargs correctly from 4-tuple
-#  7.  dispatch_class        — display_class is correct with 4-tuple payload
-#  8.  display_args          — positional/kwargs shown separately when kwargs present
-#  9.  Full round-trip        — enqueue via Proxy, execute inline via GenericJob
-# 10.  DelayedModel          — all three job subclasses exercised
-# 11.  DelayedMailer         — mailer 4-tuple emission + dispatch without ArgumentError
-# 12.  Sidekiq 6.4 compat    — exact 4-tuple YAML from the old built-in dispatches OK
-# 13.  Regression scenario   — exact broken call from discussion #6979
-# 14.  Backward compat       — legacy 3-tuple payloads dispatched without new exceptions
-# 15.  GenericProxy unchanged — use_generic_proxy=true path is unaffected
+#  1. Proxy payload shape — .delay
+#  2. Proxy payload shape — .delay_for and .delay_until
+#  3. Module target (non-class)
+#  4. YAML symbol key round-trip
+#  5. GenericJob#perform dispatch from 4-tuple
+#  6. display_class with 4-tuple
+#  7. display_args with 4-tuple
+#  8. Full round-trip (Proxy → inline GenericJob)
+#  9. DelayedModel — class-method and AR-instance-method paths
+# 10. DelayedMailer — emission + dispatch with captured kwargs assertion
+# 11. Sidekiq 6.4 built-in payload compatibility (real migration scenario)
+# 12. Regression — discussion #6979 exact repro
+# 13. Backward compatibility — legacy 3-tuple payloads (no new exceptions)
+# 14. GenericProxy (use_generic_proxy=true) is unaffected
 
 require_relative "helper"
 require "sidekiq/api"
 require "active_record"
 require "action_mailer"
 Sidekiq::DelayExtensions.enable_delay!
+
+# Use the in-memory :test delivery method so KwargsMailer dispatch tests don't
+# try to open an SMTP connection.  Captured deliveries land in
+# ActionMailer::Base.deliveries which we ignore — the assertions inspect
+# captured kwargs directly.
+ActionMailer::Base.delivery_method = :test
+ActionMailer::Base.perform_deliveries = true
+ActionMailer::Base.raise_delivery_errors = false
 
 # ---------------------------------------------------------------------------
 # Support classes
@@ -56,6 +63,10 @@ class KwargsTarget
 
   def self.positional_only(a, b)
     a + b
+  end
+
+  def self.no_args
+    :called_without_args
   end
 
   # A positional Hash parameter — must NOT be treated as kwargs at enqueue time.
@@ -81,15 +92,37 @@ module KwargsModule
 end
 
 class KwargsMailer < ActionMailer::Base
+  # Mutable capture slot for assertions in dispatch tests — see test #10.
+  cattr_accessor :captured_args, instance_accessor: false
+  self.captured_args = nil
+
   def welcome(name:, locale: :en)
-    name
+    KwargsMailer.captured_args = {name: name, locale: locale}
+    # Build a real (test-mode) Mail::Message so the surrounding _perform's
+    # `msg.deliver_now` call is a no-op via ActionMailer's :test delivery.
+    mail(to: "to@test.invalid", from: "from@test.invalid", subject: "ok", body: "ok")
   end
 end
 
-# Minimal AR-like class for DelayedModel tests (avoids sqlite3 setup)
+# Minimal AR-like class for DelayedModel CLASS-method tests (avoids sqlite3 setup).
 class KwargsRecord
   def self.process(entity_id, action:, priority: :normal)
     [entity_id, action, priority]
+  end
+end
+
+# AR-style INSTANCE delay path: include the same module that
+# Sidekiq::DelayExtensions wires onto ActiveRecord::Base in production.
+# This exercises the user_instance.delay.method(kwarg: val) flow without
+# requiring a real database connection.
+class KwargsActiveModel
+  include Sidekiq::DelayExtensions::ActiveRecord
+
+  cattr_accessor :received, instance_accessor: false
+  self.received = nil
+
+  def update_with(new_status:, audited_by: :system)
+    KwargsActiveModel.received = {new_status: new_status, audited_by: audited_by}
   end
 end
 
@@ -97,10 +130,17 @@ end
 # YAML helpers
 # ---------------------------------------------------------------------------
 
-# 3-tuple YAML as the broken 7.1.0 Proxy emitted on Ruby 3.1 when called with
-# keyword arguments — kwargs are folded as a trailing element of *args.
-def legacy_3tuple_yml(target, method_sym, positional_args, kwargs_hash)
+# 3-tuple YAML matching what the broken 7.1.0 Proxy actually emitted on Ruby
+# 3.1 when called with keyword arguments — kwargs end up folded as a trailing
+# Hash inside the *args array (because **kwargs was missing from the proxy).
+def legacy_3tuple_with_folded_kwargs(target, method_sym, positional_args, kwargs_hash)
   ::YAML.dump([target, method_sym, positional_args + [kwargs_hash]])
+end
+
+# 3-tuple YAML for a no-kwargs legacy call (what 7.1.0 emitted when no kwargs
+# were passed at all — args is just the bare positional array).
+def legacy_3tuple_positional_only(target, method_sym, positional_args)
+  ::YAML.dump([target, method_sym, positional_args])
 end
 
 # 4-tuple YAML as the fixed 7.2.0 Proxy (and Sidekiq 6.4 built-in) emits.
@@ -116,6 +156,8 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   before do
     @cfg = reset!
     Sidekiq::DelayExtensions.use_generic_proxy = false
+    KwargsMailer.captured_args = nil
+    KwargsActiveModel.received = nil
   end
 
   after do
@@ -123,7 +165,7 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   end
 
   # =========================================================================
-  # 1–4. Proxy payload shape
+  # 1. Proxy payload shape — .delay
   # =========================================================================
 
   describe "Proxy payload shape — .delay" do
@@ -147,6 +189,17 @@ describe "Proxy kwargs fix (4-tuple payload)" do
       assert_equal({}, raw[3])
     end
 
+    it "emits a 4-tuple for a no-args, no-kwargs call" do
+      q = Sidekiq::Queue.new
+      KwargsTarget.delay.no_args
+      raw = ::YAML.unsafe_load(q.first["args"].first)
+      assert_equal 4, raw.length
+      assert_equal KwargsTarget, raw[0]
+      assert_equal :no_args, raw[1]
+      assert_equal [], raw[2]
+      assert_equal({}, raw[3])
+    end
+
     it "emits kwargs-only as [] args + kwargs hash" do
       q = Sidekiq::Queue.new
       KwargsTarget.delay.kwargs_only(name: "alice", value: 42)
@@ -155,14 +208,31 @@ describe "Proxy kwargs fix (4-tuple payload)" do
       assert_equal({name: "alice", value: 42}, raw[3])
     end
 
-    it "does not conflate a positional Hash with kwargs" do
+    it "preserves Ruby's own positional/kwargs split for a literal trailing Hash" do
+      # The gem records whatever Ruby's calling convention puts in *args vs
+      # **kwargs at the Proxy.method_missing call site.  Ruby itself differs
+      # between versions for a literal trailing Hash:
+      #   - Ruby 2.7  → auto-promotes the Hash to **kwargs (deprecation warning)
+      #   - Ruby 3.0+ → keeps the Hash in *args (kwargs separation enforced)
+      # Both outcomes are correct for the gem; this test asserts whichever is
+      # appropriate for the running Ruby.  See README "Ruby version sensitivity".
       q = Sidekiq::Queue.new
       KwargsTarget.delay.positional_hash({color: :blue})
       raw = ::YAML.unsafe_load(q.first["args"].first)
-      assert_equal [{color: :blue}], raw[2], "positional hash must stay in args slot"
-      assert_equal({}, raw[3], "kwargs slot must be empty")
+      assert_equal 4, raw.length, "payload is always a 4-tuple regardless of Ruby version"
+      if RUBY_VERSION >= "3.0"
+        assert_equal [{color: :blue}], raw[2], "Ruby 3.0+: positional Hash stays in args slot"
+        assert_equal({}, raw[3], "Ruby 3.0+: kwargs slot is empty")
+      else
+        assert_equal [], raw[2], "Ruby 2.7: trailing Hash auto-promoted out of args"
+        assert_equal({color: :blue}, raw[3], "Ruby 2.7: trailing Hash auto-promoted into kwargs")
+      end
     end
   end
+
+  # =========================================================================
+  # 2. Proxy payload shape — .delay_for and .delay_until
+  # =========================================================================
 
   describe "Proxy payload shape — .delay_for and .delay_until" do
     it "delay_for emits a 4-tuple with kwargs" do
@@ -171,7 +241,8 @@ describe "Proxy kwargs fix (4-tuple payload)" do
       assert_equal 1, ss.size
       raw = ::YAML.unsafe_load(ss.first["args"].first)
       assert_equal 4, raw.length
-      # Only explicitly-passed kwargs are in the payload; kw_b default is applied at dispatch.
+      # Only explicitly-passed kwargs are captured; kw_b's default is applied
+      # at dispatch time, not at enqueue time.
       assert_equal({kw_a: :x}, raw[3])
     end
 
@@ -186,7 +257,7 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   end
 
   # =========================================================================
-  # 4. Module target
+  # 3. Module target (non-class)
   # =========================================================================
 
   describe "Module target (non-class)" do
@@ -209,7 +280,7 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   end
 
   # =========================================================================
-  # 5. YAML symbol key round-trip
+  # 4. YAML symbol key round-trip
   # =========================================================================
 
   describe "YAML symbol key round-trip" do
@@ -231,8 +302,8 @@ describe "Proxy kwargs fix (4-tuple payload)" do
     end
 
     it "symbol keys dispatch correctly after YAML round-trip (**kwargs splat)" do
-      # This is the core correctness guarantee: if keys were stringified by YAML,
-      # **kwargs dispatch would raise ArgumentError.
+      # If keys were stringified by YAML, **kwargs dispatch would raise
+      # ArgumentError.  This is the core correctness guarantee.
       yml = canonical_4tuple_yml(KwargsTarget, :mixed, ["a", "b"], {kw_a: :x, kw_b: :y})
       result = Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
       assert_equal ["a", "b", :x, :y], result, "symbol-keyed kwargs must dispatch without ArgumentError"
@@ -240,7 +311,7 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   end
 
   # =========================================================================
-  # 6. GenericJob#perform dispatch
+  # 5. GenericJob#perform dispatch from 4-tuple payload
   # =========================================================================
 
   describe "GenericJob#perform dispatch from 4-tuple payload" do
@@ -268,10 +339,15 @@ describe "Proxy kwargs fix (4-tuple payload)" do
       yml = canonical_4tuple_yml(KwargsTarget, :splat_kwargs, ["x", "y"], {flag: true})
       assert_equal [["x", "y"], {flag: true}], Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
     end
+
+    it "dispatches no-args, no-kwargs methods" do
+      yml = canonical_4tuple_yml(KwargsTarget, :no_args, [], {})
+      assert_equal :called_without_args, Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
+    end
   end
 
   # =========================================================================
-  # 7. display_class
+  # 6. display_class with 4-tuple payload
   # =========================================================================
 
   describe "display_class with 4-tuple payload" do
@@ -289,7 +365,7 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   end
 
   # =========================================================================
-  # 8. display_args
+  # 7. display_args with 4-tuple payload
   # =========================================================================
 
   describe "display_args with 4-tuple payload" do
@@ -313,7 +389,7 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   end
 
   # =========================================================================
-  # 9. Full round-trip (Proxy → inline GenericJob)
+  # 8. Full round-trip (Proxy → inline GenericJob)
   # =========================================================================
 
   describe "full round-trip via inline testing mode" do
@@ -352,13 +428,12 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   end
 
   # =========================================================================
-  # 10. DelayedModel
+  # 9. DelayedModel — class-method and AR-instance-method paths
   # =========================================================================
 
-  describe "DelayedModel (AR model subclass of GenericJob)" do
+  describe "DelayedModel — class-method path" do
     it "emits a 4-tuple when delay is called on an AR-like class" do
       q = Sidekiq::Queue.new
-      # Use the DelayedModel job class explicitly via the client_push path
       proxy = Sidekiq::DelayExtensions::Proxy.new(
         Sidekiq::DelayExtensions::DelayedModel, KwargsRecord
       )
@@ -384,8 +459,37 @@ describe "Proxy kwargs fix (4-tuple payload)" do
     end
   end
 
+  describe "DelayedModel — AR-instance-method path (production usage shape)" do
+    # In production, delay_extensions wires Sidekiq::DelayExtensions::ActiveRecord
+    # onto ActiveRecord::Base via ActiveSupport.on_load(:active_record).  Each AR
+    # instance gains #delay / #delay_for / #delay_until methods that target the
+    # instance.  This test exercises that exact path with kwargs.
+
+    it "instance.delay.method(kwarg: val) emits a 4-tuple targeting the instance" do
+      q = Sidekiq::Queue.new
+      instance = KwargsActiveModel.new
+      instance.delay.update_with(new_status: :active, audited_by: :sso)
+      raw = ::YAML.unsafe_load(q.first["args"].first)
+      assert_equal 4, raw.length
+      assert_kind_of KwargsActiveModel, raw[0], "instance must be the target slot"
+      assert_equal :update_with, raw[1]
+      assert_equal [], raw[2]
+      assert_equal({new_status: :active, audited_by: :sso}, raw[3])
+    end
+
+    it "instance.delay round-trips kwargs through inline dispatch" do
+      require "sidekiq/delay_extensions/testing"
+      Sidekiq::Testing.inline!
+      instance = KwargsActiveModel.new
+      instance.delay.update_with(new_status: :active, audited_by: :sso)
+      assert_equal({new_status: :active, audited_by: :sso}, KwargsActiveModel.received)
+    ensure
+      Sidekiq::Testing.disable!
+    end
+  end
+
   # =========================================================================
-  # 11. DelayedMailer
+  # 10. DelayedMailer — emission + dispatch with captured kwargs assertion
   # =========================================================================
 
   describe "DelayedMailer (mailer subclass of GenericJob)" do
@@ -400,19 +504,19 @@ describe "Proxy kwargs fix (4-tuple payload)" do
       assert_equal({name: "carol", locale: :fr}, raw[3])
     end
 
-    it "does not raise ArgumentError when kwargs are supplied via 4-tuple on perform" do
+    it "dispatches kwargs to the mailer method (asserted via captured args)" do
+      # KwargsMailer#welcome stores its received kwargs in KwargsMailer.captured_args.
+      # If the kwargs aren't re-splatted correctly, the method either raises
+      # ArgumentError before capture or captures the wrong values.  Either way
+      # the assertion below catches it — no silent vacuous pass.
       yml = canonical_4tuple_yml(KwargsMailer, :welcome, [], {name: "carol", locale: :fr})
-      begin
-        Sidekiq::DelayExtensions::DelayedMailer.new.perform(yml)
-      rescue => e
-        refute_match(/wrong number of arguments/, e.message,
-          "kwargs mismatch ArgumentError must not occur — got: #{e.message}")
-      end
+      Sidekiq::DelayExtensions::DelayedMailer.new.perform(yml)
+      assert_equal({name: "carol", locale: :fr}, KwargsMailer.captured_args)
     end
   end
 
   # =========================================================================
-  # 12. Sidekiq 6.4 built-in payload compatibility
+  # 11. Sidekiq 6.4 built-in payload compatibility
   # =========================================================================
   #
   # Any job enqueued by Sidekiq 6.4's built-in delay extension and still
@@ -421,8 +525,8 @@ describe "Proxy kwargs fix (4-tuple payload)" do
 
   describe "Sidekiq 6.4 built-in payload compatibility" do
     it "dispatches a 6.4-style 4-tuple payload with symbol kwargs" do
-      # Replicate the exact YAML that sidekiq-6.4.0 lib/sidekiq/extensions/generic_proxy.rb
-      # would produce: [target, method_sym, positional_args, kwargs_hash]
+      # Replicates sidekiq-6.4.0 lib/sidekiq/extensions/generic_proxy.rb:
+      #   obj = [@target, name, args, kwargs]
       sidekiq_64_yml = ::YAML.dump([KwargsTarget, :mixed, ["a", "b"], {kw_a: :x, kw_b: :y}])
       result = Sidekiq::DelayExtensions::DelayedClass.new.perform(sidekiq_64_yml)
       assert_equal ["a", "b", :x, :y], result
@@ -442,7 +546,7 @@ describe "Proxy kwargs fix (4-tuple payload)" do
   end
 
   # =========================================================================
-  # 13. Regression scenario — exact broken call from discussion #6979
+  # 12. Regression — discussion #6979 exact repro
   # =========================================================================
   #
   # The reporter called User.delay.call('1', hello: 'there') and got:
@@ -454,11 +558,9 @@ describe "Proxy kwargs fix (4-tuple payload)" do
       q = Sidekiq::Queue.new
       KwargsTarget.delay.call("1", hello: "there")
       raw = ::YAML.unsafe_load(q.first["args"].first)
-      assert_equal 4, raw.length,
-        "broken 7.1.0 produced a 3-tuple — must be 4-tuple now"
+      assert_equal 4, raw.length, "broken 7.1.0 produced a 3-tuple — must be 4-tuple now"
       assert_equal ["1"], raw[2], "positional args must be in slot 2"
-      assert_equal({hello: "there"}, raw[3], "kwargs must be in slot 3, not folded into args"
-      )
+      assert_equal({hello: "there"}, raw[3], "kwargs must be in slot 3, not folded into args")
     end
 
     it "dispatches without ArgumentError for the #6979 call pattern" do
@@ -475,60 +577,67 @@ describe "Proxy kwargs fix (4-tuple payload)" do
       # Manually construct what Sidekiq 6.4 built-in generic_proxy.rb:22 produced:
       #   obj = [@target, name, args, kwargs]
       expected = [KwargsTarget, :call, ["1"], {hello: "there"}]
-      assert_equal expected, gem_payload,
-        "gem 7.2.0 payload must be identical to Sidekiq 6.4 built-in payload"
+      assert_equal expected, gem_payload, "gem 7.2.0 payload must be identical to Sidekiq 6.4 built-in payload"
     end
   end
 
   # =========================================================================
-  # 14. Backward compatibility — legacy 3-tuple payloads
+  # 13. Backward compatibility — legacy 3-tuple payloads
   # =========================================================================
   #
   # Jobs enqueued by gem 7.0–7.1 on Ruby 3.1 are 3-tuples with kwargs folded
   # into args.  After upgrading to 7.2.0, those payloads are still in the
-  # queue.  The fix must not introduce any NEW exception for those jobs.
+  # queue.  The fix must not introduce any NEW exception for those jobs —
+  # dispatch behaviour must be identical to what 7.1.0 produced.
 
   describe "backward compatibility — legacy 3-tuple payloads" do
-    it "pure positional 3-tuple (no kwargs ever involved) dispatches correctly" do
-      yml = ::YAML.dump([KwargsTarget, :positional_only, [5, 6]])
+    it "pure positional 3-tuple (no kwargs ever passed) dispatches correctly" do
+      yml = legacy_3tuple_positional_only(KwargsTarget, :positional_only, [5, 6])
       assert_equal 11, Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
     end
 
-    it "3-tuple with folded kwargs: hash stays positional — no new exception" do
-      yml = legacy_3tuple_yml(KwargsTarget, :splat_kwargs, ["x"], {flag: true})
-      # kwargs slot is absent → treated as {} → dispatched without ** splat.
-      # On Ruby 3.1 the hash stays as a positional element in *args.
+    it "3-tuple with folded kwargs dispatches without raising — version-appropriate result" do
+      # The fix's contract for legacy 3-tuple payloads: do not introduce any new
+      # exception relative to pre-7.2.0.  Final dispatch shape depends on Ruby:
+      #   - Ruby 2.7  → _perform's **kwargs splat auto-promotes the trailing Hash,
+      #                 happily routing the kwargs to the target method (rescue).
+      #   - Ruby 3.0+ → no auto-promotion; the Hash stays positional, matching
+      #                 the broken 7.1.0 dispatch path (no regression).
+      yml = legacy_3tuple_with_folded_kwargs(KwargsTarget, :splat_kwargs, ["x"], {flag: true})
       result = Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
-      assert_equal [["x", {flag: true}], {}], result,
-        "behaviour must be identical to pre-7.2.0: no new exception, hash stays positional"
-    end
-
-    it "3-tuple with empty folded hash dispatches as before (ArgumentError for arity mismatch)" do
-      # The broken proxy emitted an empty {} as a trailing positional arg even
-      # when no kwargs were passed, so positional_only would get 3 args not 2.
-      yml = legacy_3tuple_yml(KwargsTarget, :positional_only, [10, 20], {})
-      assert_raises(ArgumentError) do
-        Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
+      if RUBY_VERSION >= "3.0"
+        assert_equal [["x", {flag: true}], {}], result,
+          "Ruby 3.0+: dispatch identical to pre-7.2.0 (hash stays positional)"
+      else
+        assert_equal [["x"], {flag: true}], result,
+          "Ruby 2.7: language auto-promotion routes folded kwargs to **kwargs"
       end
     end
 
-    it "3-tuple does NOT incorrectly promote the trailing hash to kwargs" do
-      # Heuristic promotion would be wrong for positional-hash methods.
-      yml = legacy_3tuple_yml(KwargsTarget, :splat_kwargs, [], {a: 1})
+    it "the gem adds no heuristic kwargs promotion (delegates entirely to Ruby)" do
+      # The gem must NOT add its own logic to promote a trailing positional
+      # Hash to kwargs — that would be wrong for methods that legitimately
+      # accept a positional Hash.  Whatever happens at dispatch is purely
+      # Ruby's calling convention for the running version.
+      yml = legacy_3tuple_with_folded_kwargs(KwargsTarget, :splat_kwargs, [], {a: 1})
       result = Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
-      # The hash must land in *args, not in **kwargs.
-      assert_equal [[{a: 1}], {}], result,
-        "legacy 3-tuple trailing hash must NOT be promoted to **kwargs"
+      if RUBY_VERSION >= "3.0"
+        assert_equal [[{a: 1}], {}], result,
+          "Ruby 3.0+: no auto-promotion; trailing Hash stays positional in *args"
+      else
+        assert_equal [[], {a: 1}], result,
+          "Ruby 2.7: language-level auto-promotion routes the Hash to **kwargs"
+      end
     end
   end
 
   # =========================================================================
-  # 15. GenericProxy (use_generic_proxy=true) — unchanged
+  # 14. GenericProxy (use_generic_proxy=true) — unchanged
   # =========================================================================
 
   describe "GenericProxy path (use_generic_proxy=true) is unaffected" do
     before { Sidekiq::DelayExtensions.use_generic_proxy = true }
-    after  { Sidekiq::DelayExtensions.use_generic_proxy = false }
+    after { Sidekiq::DelayExtensions.use_generic_proxy = false }
 
     it "still emits a 3-element JSON array (not YAML 4-tuple)" do
       q = Sidekiq::Queue.new
