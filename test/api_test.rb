@@ -262,16 +262,15 @@ describe "API" do
 
     it "can enumerate jobs" do
       q = Sidekiq::Queue.new
-      Time.stub(:now, Time.new(2012, 12, 26)) do
-        ApiJob.perform_async(1, "mike")
-        assert_equal [ApiJob.name], q.map(&:klass)
+      enqueued_at = Time.now
+      ApiJob.perform_async(1, "mike")
+      assert_equal [ApiJob.name], q.map(&:klass)
 
-        job = q.first
-        assert_equal 24, job.jid.size
-        assert_equal [1, "mike"], job.args
-        assert_equal Time.new(2012, 12, 26), job.enqueued_at
-      end
-      assert q.latency > 10_000_000
+      job = q.first
+      assert_equal 24, job.jid.size
+      assert_equal [1, "mike"], job.args
+      assert_in_delta enqueued_at.to_f, job.enqueued_at.to_f, 1
+      assert_in_delta 0, q.latency, 1
 
       q = Sidekiq::Queue.new("other")
       assert_equal 0, q.size

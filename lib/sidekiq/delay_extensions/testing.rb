@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 
-require "sidekiq/testing"
+require "sidekiq"
+
+if Gem::Version.new(Sidekiq::VERSION) >= Gem::Version.new("8.1.1")
+  Sidekiq.testing!(:fake) unless defined?(Sidekiq::TestingExtensions)
+else
+  require "sidekiq/testing"
+end
 
 module Sidekiq
   module DelayedTestingExtensions

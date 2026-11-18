@@ -14,14 +14,20 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    # on-hover of the checkmark, show "Ruby 3 / Redis 6" instead of "(3 / 6)"
-    name: "Ruby ${{ matrix.ruby }} / Redis ${{ matrix.redis }}"
+    name: "Ruby ${{ matrix.ruby }} / Redis ${{ matrix.redis }} / Sidekiq ${{ matrix.sidekiq }}.x"
+
+    env:
+      SIDEKIQ_VERSION: "~> ${{ matrix.sidekiq }}.0"
 
     strategy:
       fail-fast: false
       matrix:
         ruby: ["3.3", "3.4", "4.0"]
         redis: [6, 7]
+        sidekiq: [7, 8]
+        exclude:
+          - redis: 6
+            sidekiq: 8
 
     steps:
     - uses: actions/checkout@v4

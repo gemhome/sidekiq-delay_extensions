@@ -2,7 +2,7 @@ source "https://rubygems.org"
 
 gemspec
 
-gem "sidekiq", "~> 7.0"
+gem "sidekiq", ENV.fetch("SIDEKIQ_VERSION", "~> 8.0")
 gem "rake"
 RAILS_VERSION = "~> 8.1.0", ">= 8.1.4.1"
 gem "actionmailer", RAILS_VERSION
