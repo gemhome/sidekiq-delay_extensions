@@ -2,6 +2,7 @@
 
 require_relative "helper"
 require "sidekiq/api"
+require "sidekiq/rails"
 require "active_job"
 require "action_mailer"
 
@@ -21,6 +22,7 @@ end
 
 class JobWithTags
   include Sidekiq::Job
+
   sidekiq_options tags: ["foo"]
 end
 
@@ -292,6 +294,22 @@ describe "API" do
     end
 
     describe "Rails unwrapping" do
+      it "unwraps current ActiveJob jobs" do
+        ApiAjJob.perform_later(1, 2, 3)
+
+        job = Sidekiq::Queue.new.first
+        assert_equal ApiAjJob.name, job.display_class
+        assert_equal [1, 2, 3], job.display_args
+      end
+
+      it "unwraps current ActionMailer jobs" do
+        ApiMailer.with(user: "mike").test_email(1, 2, 3).deliver_later
+
+        job = Sidekiq::Queue.new.first
+        assert_equal "#{ApiMailer.name}#test_email", job.display_class
+        assert_equal [{"user" => "mike"}, [1, 2, 3]], job.display_args
+      end
+
       SERIALIZED_JOBS.each_pair do |ver, jobs|
         it "unwraps ActiveJob #{ver} jobs" do
           # ApiAjJob.perform_later(1,2,3)

@@ -13,6 +13,6 @@ module Dummy
   class Application < Rails::Application
     config.root = File.expand_path("../..", __FILE__)
     config.eager_load = false
-    config.load_defaults "7.0"
+    config.load_defaults "8.1"
   end
 end
