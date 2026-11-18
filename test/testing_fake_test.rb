@@ -107,20 +107,22 @@ describe "Sidekiq::Testing.fake" do
   before do
     reset!
     require "sidekiq/delay_extensions/testing"
-    Sidekiq::Testing.fake!
+    TestHelper.sidekiq_testing!(:fake)
     EnqueuedJob.jobs.clear
     DirectJob.jobs.clear
   end
 
   after do
-    Sidekiq::Testing.disable!
+    TestHelper.sidekiq_testing!(:disable)
     Sidekiq::Queues.clear_all
   end
 
   it "stubs the async call" do
     assert_equal 0, DirectJob.jobs.size
     assert DirectJob.perform_async(1, 2)
-    assert_in_delta Time.now.to_f, DirectJob.jobs.last["enqueued_at"], 0.1
+    enqueued_at = DirectJob.jobs.last["enqueued_at"]
+    enqueued_at /= 1000.0 if TestHelper.is_sidekiq_version?(:>=, "8.0.0")
+    assert_in_delta Time.now.to_f, enqueued_at, 0.1
     assert_equal 1, DirectJob.jobs.size
     assert DirectJob.perform_in(10, 1, 2)
     refute DirectJob.jobs.last["enqueued_at"]
@@ -332,11 +334,11 @@ describe "Sidekiq::Testing.fake" do
   describe "queue testing" do
     before do
       require "sidekiq/delay_extensions/testing"
-      Sidekiq::Testing.fake!
+      TestHelper.sidekiq_testing!(:fake)
     end
 
     after do
-      Sidekiq::Testing.disable!
+      TestHelper.sidekiq_testing!(:disable)
       Sidekiq::Queues.clear_all
     end
 

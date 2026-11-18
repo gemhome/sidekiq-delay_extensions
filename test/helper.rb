@@ -27,6 +27,21 @@ end
 ENV["REDIS_URL"] ||= "redis://localhost/15"
 NULL_LOGGER = Logger.new(IO::NULL)
 
+module TestHelper
+  def self.is_sidekiq_version?(operator, version)
+    Gem::Version.new(Sidekiq::VERSION).public_send(operator, Gem::Version.new(version))
+  end
+
+  def self.sidekiq_testing!(mode)
+    if is_sidekiq_version?(:<, "8.1.1")
+      require "sidekiq/testing"
+      Sidekiq::Testing.public_send("#{mode}!")
+    else
+      Sidekiq.testing!(mode)
+    end
+  end
+end
+
 def reset!
   # tidy up any open but unreferenced Redis connections so we don't run out of file handles
   if Sidekiq.default_configuration.instance_variable_defined?(:@redis)

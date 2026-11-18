@@ -40,12 +40,11 @@ describe "Sidekiq::Testing.inline" do
   before do
     reset!
     require "sidekiq/delay_extensions/testing"
-    require "sidekiq/testing/inline"
-    Sidekiq::Testing.inline!
+    TestHelper.sidekiq_testing!(:inline)
   end
 
   after do
-    Sidekiq::Testing.disable!
+    TestHelper.sidekiq_testing!(:disable)
   end
 
   it "stubs the async call when in testing mode" do
