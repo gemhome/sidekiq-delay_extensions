@@ -19,8 +19,8 @@ your idea can best fit into Sidekiq.
 
 ### Local development setup
 
-You need Redis installed and a Ruby version that fulfills the requirements in
-`sidekiq.gemspec`. Then:
+You need Redis installed and Ruby 3.2 or newer for the Rails 8.1 development and
+test bundles. Then:
 
 ```
 bundle install

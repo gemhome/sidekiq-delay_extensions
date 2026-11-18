@@ -4,7 +4,7 @@ gemspec
 
 gem "sidekiq", "~> 7.0"
 gem "rake"
-RAILS_VERSION = "~> 7.0.4"
+RAILS_VERSION = "~> 8.1.0", ">= 8.1.4.1"
 gem "actionmailer", RAILS_VERSION
 gem "actionpack", RAILS_VERSION
 gem "activejob", RAILS_VERSION
@@ -21,6 +21,7 @@ gem "yard"
 
 group :test do
   gem "maxitest"
+  gem "minitest-mock", require: "minitest/mock"
   gem "simplecov"
 end
 

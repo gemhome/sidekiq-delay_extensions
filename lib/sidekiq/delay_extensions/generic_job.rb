@@ -19,7 +19,7 @@ module Sidekiq
             fail NameError, "uninitialized constant #{target}. Peforming: #{yml.inspect}"
           end
         end
-        has_no_kwargs = kwargs.nil? || kwargs.empty? # rubocop:disable Rails/Blank
+        has_no_kwargs = kwargs.nil? || kwargs.empty?
         if has_no_kwargs
           if args.is_a?(Array) && args.last.is_a?(Hash) # && args.last.keys.any? { |key| key.is_a?(Symbol) }
             # rehydrate keys

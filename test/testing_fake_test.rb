@@ -5,6 +5,7 @@ class PerformError < RuntimeError; end
 
 class DirectJob
   include Sidekiq::Job
+
   def perform(a, b)
     a + b
   end
@@ -12,6 +13,7 @@ end
 
 class EnqueuedJob
   include Sidekiq::Job
+
   def perform(a, b)
     a + b
   end
@@ -19,6 +21,7 @@ end
 
 class StoredJob
   include Sidekiq::Job
+
   def perform(error)
     raise PerformError if error
   end
@@ -44,6 +47,7 @@ end
 
 class SpecificJidJob
   include Sidekiq::Job
+
   sidekiq_class_attribute :count
   self.count = 0
   def perform(worker_jid)
@@ -54,6 +58,7 @@ end
 
 class FirstJob
   include Sidekiq::Job
+
   sidekiq_class_attribute :count
   self.count = 0
   def perform
@@ -63,6 +68,7 @@ end
 
 class SecondJob
   include Sidekiq::Job
+
   sidekiq_class_attribute :count
   self.count = 0
   def perform
@@ -72,6 +78,7 @@ end
 
 class ThirdJob
   include Sidekiq::Job
+
   sidekiq_class_attribute :count
   def perform
     FirstJob.perform_async
@@ -81,6 +88,7 @@ end
 
 class QueueJob
   include Sidekiq::Job
+
   def perform(a, b)
     a + b
   end
@@ -88,6 +96,7 @@ end
 
 class AltQueueJob
   include Sidekiq::Job
+
   sidekiq_options queue: :alt
   def perform(a, b)
     a + b
