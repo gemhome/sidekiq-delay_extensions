@@ -7,17 +7,21 @@ Sidekiq Delay Extensions
 The [Sidekiq delay extensions were deprecated in 6.x and were removed from 7.x](https://github.com/mperham/sidekiq/issues/5076).
 
 This gem extracts the delay extensions from the latest 6.x release, 6.5.12.
-Version 7.x of this gem will maintain compatibility with Sidekiq 7.x.
+Version 8.x of this gem supports Sidekiq 7.x and 8.x. Version 7.x of this gem supports Sidekiq 7.x.
 
 This gem is maintained independent of Sidekiq. Maintainers wanted.
 
 Requirements
 -----------------
 
-- See https://github.com/sidekiq/sidekiq/blob/main/Changes.md#700
-  - Redis: 6.2+
-  - Ruby: MRI 2.7+ or JRuby 9.3+.
-  - Sidekiq 7.0 supports Rails 6.0+ but does not require it.
+Version 8.x of this gem requires Ruby 3.3 or later with either Sidekiq version. Rails is optional.
+
+| Sidekiq version | Data store | Rails integration | Upstream requirements |
+| --- | --- | --- | --- |
+| 7.x | Redis 6.2+, or Dragonfly 1.13+ with Sidekiq 7.2+ | Rails 6.0+ | [Sidekiq 7 documentation](https://github.com/sidekiq/sidekiq/blob/v7.3.10/README.md#requirements) |
+| 8.x | Redis 7.0+, Valkey 7.2+, or Dragonfly 1.27+ | Rails 7.0+ | [Sidekiq 8 documentation](https://github.com/sidekiq/sidekiq/blob/main/docs/8.0-Upgrade.md#version-support) |
+
+Sidekiq 8.0.0 specifically requires Redis 7.2 or later. Redis 7.0 support starts with Sidekiq 8.0.1. [Sidekiq 8.0.1 release notes](https://github.com/sidekiq/sidekiq/blob/main/Changes.md#801)
 
 Installation
 -----------------
