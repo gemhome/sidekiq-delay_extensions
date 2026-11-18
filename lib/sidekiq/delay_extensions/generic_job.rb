@@ -7,8 +7,14 @@ module Sidekiq
 
       def perform(yml)
         if !Sidekiq::DelayExtensions.use_generic_proxy
-          (target, method_name, args) = ::Sidekiq::DelayExtensions::YAML.unsafe_load(yml)
-          return _perform(target, method_name, *args)
+          (target, method_name, args, kwargs) = ::Sidekiq::DelayExtensions::YAML.unsafe_load(yml)
+          # kwargs is nil for 3-tuple payloads enqueued by older versions of this gem
+          # (prior to 7.2.0) or by any code that did not emit the 4th slot. Treat
+          # them as having no kwargs so dispatch is identical to the old behaviour —
+          # no regression for jobs already sitting in the queue, retry set, or
+          # scheduled set at deploy time.
+          kwargs ||= {}
+          return kwargs.empty? ? _perform(target, method_name, *args) : _perform(target, method_name, *args, **kwargs)
         end
         (target, method_name, args, kwargs) = ::Sidekiq::DelayExtensions::YAML.unsafe_load(yml)
         if target.is_a?(String)

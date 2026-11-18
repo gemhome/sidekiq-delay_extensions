@@ -79,8 +79,11 @@ describe Sidekiq::DelayExtensions do
     assert_equal ["default"], Sidekiq::Queue.all.map(&:name)
     assert_equal 1, q.size
     obj = ::YAML.load q.first["args"].first
-    assert_equal(["argument_a", "argument_b", {with: :keywords}], obj.last)
-    assert_equal(["argument_a", "argument_b", {with: :keywords}], q.first.display_args)
+    # Proxy now emits a 4-tuple [target, method, args, kwargs]; kwargs is the last slot.
+    assert_equal(["argument_a", "argument_b"], obj[2])
+    assert_equal({with: :keywords}, obj[3])
+    # display_args reflects the structured separation: [positional_args, kwargs_hash]
+    assert_equal([["argument_a", "argument_b"], {with: :keywords}], q.first.display_args)
   ensure
     Sidekiq::DelayExtensions.use_generic_proxy = original_use_generic_proxy
   end
@@ -95,8 +98,9 @@ describe Sidekiq::DelayExtensions do
     Sidekiq::DelayExtensions.use_generic_proxy = false
     Sidekiq::Queue.new.clear
 
+    # 4-tuple payload: kwargs are in their own slot and must be re-splatted on dispatch.
     result = Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
-    assert_equal([[], {}], result)
+    assert_equal([[], {with: :keywords}], result)
   ensure
     Sidekiq::DelayExtensions.use_generic_proxy = original_use_generic_proxy
   end
@@ -155,8 +159,9 @@ describe Sidekiq::DelayExtensions do
     assert_equal ["default"], Sidekiq::Queue.all.map(&:name)
     assert_equal 1, q.size
     obj = ::YAML.load q.first["args"].first
-    assert_equal(["argument_a", "argument_b", {with: :keywords}], obj.last)
-    assert_equal(["argument_a", "argument_b", {with: :keywords}], q.first.display_args)
+    assert_equal(["argument_a", "argument_b"], obj[2])
+    assert_equal({with: :keywords}, obj[3])
+    assert_equal([["argument_a", "argument_b"], {with: :keywords}], q.first.display_args)
   ensure
     Sidekiq::DelayExtensions.use_generic_proxy = original_use_generic_proxy
   end
@@ -201,8 +206,9 @@ describe Sidekiq::DelayExtensions do
     SomeClass.delay.doit_with_optional_args("argument_a", "argument_b", with: :keywords)
     assert_equal 1, q.size
     obj = ::YAML.load q.first["args"].first
-    assert_equal(["argument_a", "argument_b", {with: :keywords}], obj.last)
-    assert_equal(["argument_a", "argument_b", {with: :keywords}], q.first.display_args)
+    assert_equal(["argument_a", "argument_b"], obj[2])
+    assert_equal({with: :keywords}, obj[3])
+    assert_equal([["argument_a", "argument_b"], {with: :keywords}], q.first.display_args)
   ensure
     Sidekiq::DelayExtensions.use_generic_proxy = original_use_generic_proxy
   end
@@ -217,7 +223,7 @@ describe Sidekiq::DelayExtensions do
 
     Sidekiq::DelayExtensions.use_generic_proxy = false
     result = Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
-    assert_equal([[], {}], result)
+    assert_equal([[], {with: :keywords}], result)
   ensure
     Sidekiq::DelayExtensions.use_generic_proxy = original_use_generic_proxy
   end
@@ -254,8 +260,9 @@ describe Sidekiq::DelayExtensions do
     SomeModule.delay.doit_with_optional_args("argument_a", "argument_b", with: :keywords)
     assert_equal 1, q.size
     obj = ::YAML.load q.first["args"].first
-    assert_equal(["argument_a", "argument_b", {with: :keywords}], obj.last)
-    assert_equal(["argument_a", "argument_b", {with: :keywords}], q.first.display_args)
+    assert_equal(["argument_a", "argument_b"], obj[2])
+    assert_equal({with: :keywords}, obj[3])
+    assert_equal([["argument_a", "argument_b"], {with: :keywords}], q.first.display_args)
   ensure
     Sidekiq::DelayExtensions.use_generic_proxy = original_use_generic_proxy
   end
@@ -270,7 +277,7 @@ describe Sidekiq::DelayExtensions do
 
     Sidekiq::DelayExtensions.use_generic_proxy = false
     result = Sidekiq::DelayExtensions::DelayedClass.new.perform(yml)
-    assert_equal([[], {}], result)
+    assert_equal([[], {with: :keywords}], result)
   ensure
     Sidekiq::DelayExtensions.use_generic_proxy = original_use_generic_proxy
   end
