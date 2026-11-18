@@ -5,6 +5,14 @@
 Unreleased
 ---------
 
+8.0.0
+---------
+
+- Require Ruby 3.3 or later.
+- Add support for Sidekiq 8 and test against both Sidekiq 7 and 8.
+- Use the new testing API on Sidekiq 8.1.1 and later.
+- Update the development and test bundles to Rails 8.1.
+
 7.1.0
 ---------
 
